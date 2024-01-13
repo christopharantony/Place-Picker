@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import Places from "./components/Places.jsx";
 import { AVAILABLE_PLACES } from "./data.js";
@@ -7,19 +7,26 @@ import DeleteConfirmation from "./components/DeleteConfirmation.jsx";
 import logoImg from "./assets/logo.png";
 import { sortPlacesByDistance } from "./loc.js";
 
+const SELECTED_PLACES = "selectedPlaces";
+
+const storedIds = JSON.parse(localStorage.getItem(SELECTED_PLACES)) || [];
+const storedPlaces = storedIds.map((id) => {
+  return AVAILABLE_PLACES.find((item) => item.id === id);
+});
+
 function App() {
-  const modal = useRef();
   const selectedPlace = useRef();
-  const [pickedPlaces, setPickedPlaces] = useState([]);
+  const [pickedPlaces, setPickedPlaces] = useState(storedPlaces);
   const [availablePlaces, setAvailablePlaces] = useState([]);
+  const [open, setOpen] = useState(false);
 
   function handleStartRemovePlace(id) {
-    modal.current.open();
+    setOpen(true);
     selectedPlace.current = id;
   }
 
   function handleStopRemovePlace() {
-    modal.current.close();
+    setOpen(false);
   }
 
   function handleSelectPlace(id) {
@@ -30,14 +37,22 @@ function App() {
       const place = AVAILABLE_PLACES.find((place) => place.id === id);
       return [place, ...prevPickedPlaces];
     });
+    const storedIds = JSON.parse(localStorage.getItem(SELECTED_PLACES)) || [];
+    localStorage.setItem(SELECTED_PLACES, JSON.stringify([...storedIds, id]));
   }
 
-  function handleRemovePlace() {
+  const handleRemovePlace = useCallback(() => {
     setPickedPlaces((prevPickedPlaces) =>
       prevPickedPlaces.filter((place) => place.id !== selectedPlace.current)
     );
-    modal.current.close();
-  }
+    setOpen(false);
+
+    const storedIds = JSON.parse(localStorage.getItem(SELECTED_PLACES)) || [];
+    localStorage.setItem(
+      SELECTED_PLACES,
+      JSON.stringify(storedIds.filter((id) => id !== selectedPlace.current))
+    );
+  }, []);
 
   useEffect(() => {
     navigator.geolocation.getCurrentPosition(({ coords }) => {
@@ -52,7 +67,7 @@ function App() {
 
   return (
     <>
-      <Modal ref={modal}>
+      <Modal open={open} onClose={handleStopRemovePlace}>
         <DeleteConfirmation
           onCancel={handleStopRemovePlace}
           onConfirm={handleRemovePlace}
